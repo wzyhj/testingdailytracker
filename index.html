@@ -78,8 +78,12 @@
 
   <script>
     const TASKS = [
-      "Hellux",
-     ];
+      "Daily Boss 1",
+      "Daily Quest",
+      "Resource Run",
+      "Training",
+      "Marketplace Check"
+    ];
     const MAX_CHARACTERS = 40;
 
     let characterCount = parseInt(localStorage.getItem('characterCount') || '1');
@@ -205,6 +209,26 @@
         document.getElementById('lastReset').textContent = `Last auto-reset: ${date.toUTCString()}`;
       }
     }
+
+    function requestNotificationPermission() {
+      if ("Notification" in window && Notification.permission !== "granted") {
+        Notification.requestPermission();
+      }
+    }
+
+    function scheduleReminderNotification() {
+      const now = new Date();
+      const utcHour = now.getUTCHours();
+      const utcMinute = now.getUTCMinutes();
+
+      // 21:00 UTC = 5 PM Eastern
+      if (utcHour === 21 && utcMinute === 0 && Notification.permission === "granted") {
+        new Notification("Reminder: Daily tasks reset in 3 hours!");
+      }
+    }
+
+    requestNotificationPermission();
+    setInterval(scheduleReminderNotification, 60000); // Check every minute
 
     document.getElementById('addCharacterBtn').addEventListener('click', addCharacter);
     initHeaders();
