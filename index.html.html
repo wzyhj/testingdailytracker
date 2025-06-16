@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daily Game Task Tracker</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #121212;
+      color: #ffffff;
+      padding: 20px;
+      max-width: 800px;
+      margin: auto;
+    }
+    h1 {
+      text-align: center;
+    }
+    #addCharacterBtn {
+      display: block;
+      margin: 10px auto;
+      padding: 8px 12px;
+      background-color: #333;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #555;
+      padding: 8px;
+      text-align: center;
+    }
+    th {
+      background-color: #222;
+    }
+    .name-input {
+      width: 90%;
+      background: #1e1e1e;
+      color: #fff;
+      border: none;
+      text-align: center;
+    }
+    .remove-btn {
+      background: red;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 4px;
+    }
+    #lastReset {
+      font-size: 0.9em;
+      color: #bbbbbb;
+      margin-top: 20px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>Daily Task Tracker</h1>
+  <button id="addCharacterBtn">+ Add Character</button>
+  <table id="trackerTable">
+    <thead>
+      <tr id="taskHeaders">
+        <th>Character</th>
+      </tr>
+    </thead>
+    <tbody id="characterRows"></tbody>
+  </table>
+  <div id="lastReset"></div>
+
+  <script>
+    const TASKS = [
+      "Hellux",
+     ];
+    const MAX_CHARACTERS = 40;
+
+    let characterCount = parseInt(localStorage.getItem('characterCount') || '1');
+    let characterNames = JSON.parse(localStorage.getItem('characterNames') || '[]');
+
+    if (characterCount < 1 || isNaN(characterCount)) characterCount = 1;
+    if (!Array.isArray(characterNames)) characterNames = [];
+    while (characterNames.length < characterCount) characterNames.push(`Char ${characterNames.length + 1}`);
+
+    const trackerTable = document.getElementById('trackerTable');
+    const characterRows = document.getElementById('characterRows');
+    const taskHeaders = document.getElementById('taskHeaders');
+
+    function initHeaders() {
+      TASKS.forEach(task => {
+        const th = document.createElement('th');
+        th.textContent = task;
+        taskHeaders.appendChild(th);
+      });
+    }
+
+    function loadState(index) {
+      return JSON.parse(localStorage.getItem('taskState_' + index) || '{}');
+    }
+
+    function saveState(index, state) {
+      localStorage.setItem('taskState_' + index, JSON.stringify(state));
+    }
+
+    function saveCharacterNames() {
+      localStorage.setItem('characterNames', JSON.stringify(characterNames));
+    }
+
+    function renderRows() {
+      characterRows.innerHTML = '';
+      for (let i = 0; i < characterCount; i++) {
+        const row = document.createElement('tr');
+
+        const nameCell = document.createElement('td');
+        const nameInput = document.createElement('input');
+        nameInput.className = 'name-input';
+        nameInput.value = characterNames[i] || `Char ${i + 1}`;
+        nameInput.addEventListener('change', () => {
+          characterNames[i] = nameInput.value;
+          saveCharacterNames();
+        });
+        nameCell.appendChild(nameInput);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.textContent = 'X';
+        removeBtn.className = 'remove-btn';
+        removeBtn.addEventListener('click', () => {
+          if (characterCount <= 1) {
+            alert("You must have at least one character.");
+            return;
+          }
+          characterNames.splice(i, 1);
+          localStorage.removeItem('taskState_' + i);
+
+          for (let j = i + 1; j < characterCount; j++) {
+            const nextState = localStorage.getItem('taskState_' + j);
+            localStorage.setItem('taskState_' + (j - 1), nextState);
+          }
+          localStorage.removeItem('taskState_' + (characterCount - 1));
+
+          characterCount--;
+          localStorage.setItem('characterCount', characterCount);
+          saveCharacterNames();
+          renderRows();
+        });
+        nameCell.appendChild(document.createElement('br'));
+        nameCell.appendChild(removeBtn);
+
+        row.appendChild(nameCell);
+
+        const savedState = loadState(i);
+        TASKS.forEach(task => {
+          const td = document.createElement('td');
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.checked = savedState[task] || false;
+          checkbox.addEventListener('change', () => {
+            savedState[task] = checkbox.checked;
+            saveState(i, savedState);
+          });
+          td.appendChild(checkbox);
+          row.appendChild(td);
+        });
+
+        characterRows.appendChild(row);
+      }
+    }
+
+    function addCharacter() {
+      if (characterCount < MAX_CHARACTERS) {
+        characterNames.push(`Char ${characterCount + 1}`);
+        characterCount++;
+        localStorage.setItem('characterCount', characterCount);
+        saveCharacterNames();
+        renderRows();
+      }
+    }
+
+    function maybeResetTasks() {
+      const now = new Date();
+      const todayUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+      const lastReset = parseInt(localStorage.getItem('lastReset') || 0);
+
+      if (lastReset < todayUTC) {
+        for (let i = 0; i < characterCount; i++) {
+          const savedState = loadState(i);
+          TASKS.forEach(task => savedState[task] = false);
+          saveState(i, savedState);
+        }
+        localStorage.setItem('lastReset', todayUTC);
+      }
+    }
+
+    function updateResetDisplay() {
+      const time = parseInt(localStorage.getItem('lastReset'));
+      if (time) {
+        const date = new Date(time);
+        document.getElementById('lastReset').textContent = `Last auto-reset: ${date.toUTCString()}`;
+      }
+    }
+
+    document.getElementById('addCharacterBtn').addEventListener('click', addCharacter);
+    initHeaders();
+    maybeResetTasks();
+    renderRows();
+    updateResetDisplay();
+  </script>
+</body>
+</html>
